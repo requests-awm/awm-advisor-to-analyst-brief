@@ -1,0 +1,27 @@
+# Secrets must never be baked into the image — Cloud Run injects these at
+# runtime. A committed .env would override the runtime env unpredictably.
+.env
+.env.*
+!.env.example
+
+# Produced inside the container — never copy local builds in
+node_modules
+dist
+build
+
+# VCS / IDE / OS noise
+.git
+.gitignore
+.vscode
+.idea
+.DS_Store
+Thumbs.db
+*.swp
+
+# Local artefacts
+*.log
+npm-debug.log*
+
+# Docs / scratch SQL that don't need to ship
+README.md
+scripts/_*.sql
