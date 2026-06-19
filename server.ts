@@ -176,6 +176,7 @@ app.get('/api/me', (req, res) => {
 // ─── Voice dictation: transcribe an uploaded audio clip via OpenAI ────────────
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
 const TRANSCRIBE_MODEL = process.env.OPENAI_TRANSCRIBE_MODEL || 'gpt-4o-transcribe';
+const TRANSCRIBE_LANGUAGE = process.env.OPENAI_TRANSCRIBE_LANGUAGE || 'en';
 const audioUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
 
 app.post('/api/transcribe', audioUpload.single('audio'), async (req, res) => {
@@ -186,6 +187,7 @@ app.post('/api/transcribe', audioUpload.single('audio'), async (req, res) => {
     form.append('file', new Blob([req.file.buffer as unknown as BlobPart], { type: req.file.mimetype || 'audio/webm' }), req.file.originalname || 'audio.webm');
     form.append('model', TRANSCRIBE_MODEL);
     form.append('response_format', 'json');
+    form.append('language', TRANSCRIBE_LANGUAGE);
 
     const r = await fetch('https://api.openai.com/v1/audio/transcriptions', {
       method: 'POST',
@@ -198,7 +200,21 @@ app.post('/api/transcribe', audioUpload.single('audio'), async (req, res) => {
       console.warn('⚠️ transcription failed:', msg);
       return res.status(502).json({ error: msg });
     }
-    res.json({ text: String(body?.text || '').trim() });
+    let text = String(body?.text || '').trim();
+    // Drop silence/hallucination junk (no real word) so it never lands in a field.
+    if (!/[a-z]{2,}/i.test(text)) text = '';
+    // "Make more sense" pass — only on the final clip (tidy=true) AND only on real,
+    // multi-word text (never on a stray token, which the model would fabricate from).
+    if (text && req.body?.tidy === 'true' && /\s/.test(text)) {
+      try {
+        const tidied = await openaiChat([
+          { role: 'system', content: 'You clean up dictated text for a UK financial-planning brief. Fix punctuation, capitalisation and obvious speech-to-text mishears using context (terms like ISA, GIA, SIPP, CBAM, drawdown, annuity, TM58, TFC, CGT, LOA). Do NOT add, remove, infer, or change the meaning of anything — only correct transcription/formatting. Return ONLY the cleaned text, no quotes or commentary.' },
+          { role: 'user', content: text },
+        ]);
+        if (tidied && tidied.trim()) text = tidied.trim();
+      } catch { /* keep the raw transcript if tidy fails */ }
+    }
+    res.json({ text });
   } catch (err: any) {
     console.error('transcribe error:', err?.message);
     res.status(500).json({ error: err?.message || 'Transcription error.' });

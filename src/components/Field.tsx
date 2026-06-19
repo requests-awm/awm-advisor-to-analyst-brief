@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import type { FieldDef } from '../lib/briefSchema';
 import { MicButton } from './MicButton';
 import { AsanaTaskPicker } from './AsanaTaskPicker';
@@ -14,7 +13,6 @@ export function Field({ field, value, onChange, error }: Props) {
   const set = (v: string) => onChange(field.key, v);
   const baseId = `f-${field.key}`;
   const dictatable = field.type === 'text' || field.type === 'textarea';
-  const [interim, setInterim] = useState('');
 
   return (
     <div className="space-y-2" id={baseId}>
@@ -23,7 +21,7 @@ export function Field({ field, value, onChange, error }: Props) {
           {field.label}
           {field.required && <span className="ml-1 text-[var(--color-gold)]">*</span>}
         </label>
-        {dictatable && <MicButton value={value} onChange={set} onInterim={setInterim} />}
+        {dictatable && <MicButton value={value} onChange={set} />}
       </div>
       {field.help && <p className="text-xs leading-relaxed text-[var(--color-muted-text)]">{field.help}</p>}
 
@@ -80,12 +78,6 @@ export function Field({ field, value, onChange, error }: Props) {
         />
       )}
 
-      {interim && (
-        <p className="text-sm italic text-slate-500">
-          <span className="mr-1 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-red-400 align-middle" />
-          {interim}
-        </p>
-      )}
 
       {error && <p className="text-xs text-red-400">{error}</p>}
     </div>
